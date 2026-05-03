@@ -1,0 +1,66 @@
+{
+  "hiddenFields": [
+    "Status"
+  ],
+  "sections": [
+    {
+      "title": "Request Information",
+      "fields": [
+        "Term",
+        "Year",
+        "RequestType"
+      ]
+    },
+    {
+      "title": "Student Information",
+      "fields": [
+        "StudentID",
+        "StudentFullName",
+        "StudentEmailForNotification",
+        "CourseOrStudentCampus"
+      ]
+    },
+    {
+      "title": "Course Details",
+      "fields": [
+        "OverridePrereqCourse",
+        "OverridePlacementCutScoreCourse",
+        "CourseOrStudentCampus"
+      ]
+    },
+    {
+      "title": "Review Information",
+      "fields": [
+        "Justification",
+        "DepartmentChair",
+        "Notes"
+      ]
+    },
+    {
+      "title": "Other Information",
+      "fields": [
+        "Title"
+      ]
+    }
+  ],
+  "labels": {
+    "Title": "Request Title",
+    "StudentID": "Student ID",
+    "Term": "Term",
+    "Year": "Year",
+    "StudentFullName": "Student Full Name",
+    "StudentEmailForNotification": "Student Email For Notification",
+    "RequestType": "Request Type",
+    "OverridePrereqCourse": "Override Prerequisite Course",
+    "OverridePlacementCutScoreCourse": "Override Placement Cut Score Course",
+    "Justification": "Justification",
+    "DepartmentChair": "Department Chair",
+    "CourseOrStudentCampus": "Course Or Student Campus",
+    "Notes": "Notes"
+  },
+  "helpText": {
+    "StudentEmailForNotification": "Enter the email address that should receive updates.",
+    "Justification": "Briefly explain why this request is needed.",
+    "DepartmentChair": "Enter the person’s email address. This will be upgraded to a People Picker later."
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "hiddenFields": [
+    "Status"
+  ],
+  "sections": [
+    {
+      "title": "Request Information",
+      "fields": [
+        "Anticipate_x0020_year_x0020_of_x",
+        "Anticipate_x0020_term_x0020_of_x"
+      ]
+    },
+    {
+      "title": "Student Information",
+      "fields": [
+        "Campus",
+        "Student_x0020_ID"
+      ]
+    },
+    {
+      "title": "Course Details",
+      "fields": [
+        "Substitute_x0020_Course_x0020_1_",
+        "Substitute_x0020_Course_x0020_1",
+        "Required_x0020_Course_x0020_Cred",
+        "Substitute_x0020_Course_x0020_2_",
+        "Substitute_x0020_Course_x0020_2",
+        "Required_x0020_Course"
+      ]
+    },
+    {
+      "title": "Review Information",
+      "fields": [
+        "Explanation_x002F_Rease_x0020_fo",
+        "Dean_x0020_Reason",
+        "VP_x0020_Reason",
+        "Registrar_x0020_Reason",
+        "Instructional_x0020_Dean",
+        "Graduation_x0020_Evaluator_x00201"
+      ]
+    },
+    {
+      "title": "Other Information",
+      "fields": [
+        "Title",
+        "Concentration_x002F_Designation_",
+        "Degree_x0028_s_x0029__x0020_or_x",
+        "RegApprovalDate",
+        "WorkflowStage",
+        "PrevWorkflowStage",
+        "GradEvalApprovalDate",
+        "DeanApprovalDate",
+        "VPApprovalDate",
+        "Graduation_x0020_Evaluator_x0020",
+        "Dean_x0020_Approval_x0020_Decisi",
+        "Dean_x0020_Approval_x0020_Date",
+        "VP_x0020_Approval_x0020_Date",
+        "Registrar_x0020_Approval_x0020_D",
+        "VP_x0020_Approval_x0020_Decision",
+        "Name_x0020_of_x0020_Certificate_",
+        "Ticket_x0020_Status",
+        "Graduation_x0020_Evaluator_x00200",
+        "Registrar_x0020_Approval_x0020_D0"
+      ]
+    }
+  ],
+  "labels": {
+    "Title": "Student Name",
+    "Concentration_x002F_Designation_": "Concentration/Designation/Agreement",
+    "Substitute_x0020_Course_x0020_1_": "Substitute Course 1 Credit Hours",
+    "Substitute_x0020_Course_x0020_1": "Substitute Course 1",
+    "Required_x0020_Course_x0020_Cred": "Required Course Credit Hours",
+    "Substitute_x0020_Course_x0020_2_": "Substitute Course 2 Credit Hours",
+    "Substitute_x0020_Course_x0020_2": "Substitute Course 2",
+    "Anticipate_x0020_year_x0020_of_x": "Anticipated year of graduation",
+    "Degree_x0028_s_x0029__x0020_or_x": "Degree(s) or Certificate(s) requiring substitution",
+    "Anticipate_x0020_term_x0020_of_x": "Anticipated term of graduation",
+    "Campus": "Campus",
+    "Explanation_x002F_Rease_x0020_fo": "Explanation/Reason for Substitution",
+    "RegApprovalDate": "Reg Approval Date Hidden",
+    "WorkflowStage": "Workflow Stage",
+    "PrevWorkflowStage": "Prev Workflow Stage",
+    "Student_x0020_ID": "Student ID",
+    "GradEvalApprovalDate": "Grad Eval Approval Date Hidden",
+    "DeanApprovalDate": "Dean Approval Date Hidden",
+    "VPApprovalDate": "VPApproval Date Hidden",
+    "Graduation_x0020_Evaluator_x0020": "Graduation Evaluator Review Date",
+    "Required_x0020_Course": "Required Course",
+    "Dean_x0020_Approval_x0020_Decisi": "Dean Approval Decision",
+    "Dean_x0020_Approval_x0020_Date": "Dean Approval Date",
+    "Dean_x0020_Reason": "Dean Reason",
+    "VP_x0020_Approval_x0020_Date": "VP Approval Date",
+    "Registrar_x0020_Approval_x0020_D": "Registrar Approval Date",
+    "VP_x0020_Approval_x0020_Decision": "VP Approval Decision",
+    "VP_x0020_Reason": "VP Reason",
+    "Registrar_x0020_Reason": "Registrar Reason",
+    "Name_x0020_of_x0020_Certificate_": "Name of Certificate/Degree",
+    "Instructional_x0020_Dean": "Instructional Dean",
+    "Ticket_x0020_Status": "Ticket Status",
+    "Graduation_x0020_Evaluator_x00200": "Graduation Evaluator Approval Decision",
+    "Registrar_x0020_Approval_x0020_D0": "Registrar Approval Decision",
+    "Graduation_x0020_Evaluator_x00201": "Graduation Evaluator Reason"
+  },
+  "helpText": {
+    "Instructional_x0020_Dean": "Enter the person’s email address. This will be upgraded to a People Picker later."
+  }
+}

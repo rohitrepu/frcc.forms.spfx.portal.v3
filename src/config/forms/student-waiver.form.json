@@ -1,0 +1,32 @@
+{
+  "hiddenFields": [
+    "Status"
+  ],
+  "sections": [
+    {
+      "title": "Course Details",
+      "fields": [
+        "Course"
+      ]
+    },
+    {
+      "title": "Other Information",
+      "fields": [
+        "Title",
+        "Full_x0020_Name",
+        "Semester",
+        "NFLiveAuthor",
+        "NFLiveEditor"
+      ]
+    }
+  ],
+  "labels": {
+    "Title": "Title",
+    "Full_x0020_Name": "Full Name",
+    "Course": "Program",
+    "Semester": "Semester",
+    "NFLiveAuthor": "Nintex Live Forms - Created By",
+    "NFLiveEditor": "Nintex Live Forms - Modified By"
+  },
+  "helpText": {}
+}

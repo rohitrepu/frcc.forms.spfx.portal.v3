@@ -1,0 +1,19 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "useGulp": false,
+    "plusBeta": false,
+    "isCreatingSolution": true,
+    "nodeVersion": "22.14.0",
+    "sdksVersions": {},
+    "version": "1.22.2",
+    "libraryName": "frcc-forms-spfx-portal",
+    "libraryId": "27a08d10-003c-459a-ab4c-79fc337cb0b6",
+    "environment": "spo",
+    "packageManager": "npm",
+    "solutionName": "frcc-forms-spfx-portal",
+    "solutionShortDescription": "frcc-forms-spfx-portal description",
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "componentType": "webpart"
+  }
+}

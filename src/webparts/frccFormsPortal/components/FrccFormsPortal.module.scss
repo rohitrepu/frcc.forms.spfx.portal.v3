@@ -1,0 +1,231 @@
+.portalLayout {
+  display: flex;
+  width: 100%;
+  min-height: calc(100vh - 120px);
+  background: #ffffff;
+  box-sizing: border-box;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.leftNav {
+  width: 320px;
+  min-width: 260px;
+  max-width: 320px;
+  border-right: 1px solid #d0d7de;
+  padding: 20px 18px;
+  background: #f6f8fa;
+  box-sizing: border-box;
+}
+
+.leftNav h3 {
+  margin: 0 0 16px 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.searchBox {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+  border: 1px solid #c8c6c4;
+  border-radius: 4px;
+  font-size: 14px;
+  background: #ffffff;
+}
+
+.searchBox:focus {
+  outline: 2px solid #0078d4;
+  border-color: #0078d4;
+}
+
+.searchMeta {
+  font-size: 12px;
+  color: #605e5c;
+  margin-bottom: 10px;
+}
+
+.formButton,
+.activeFormButton {
+  display: block;
+  width: 100%;
+  margin-bottom: 9px;
+  padding: 11px 12px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid #d0d7de;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1f2937;
+  box-sizing: border-box;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.formButton:hover {
+  border-color: #0078d4;
+  background: #f3f9ff;
+}
+
+.activeFormButton {
+  border-color: #005a9e;
+  background: #eaf4ff;
+  color: #003a63;
+  font-weight: 700;
+  box-shadow: inset 4px 0 0 #005a9e;
+}
+
+.formArea {
+  flex: 1;
+  padding: 34px 40px;
+  overflow-x: auto;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.formHeader {
+  max-width: 1100px;
+  margin: 0 auto 28px auto;
+  border-bottom: 1px solid #e1dfdd;
+  padding-bottom: 18px;
+}
+
+.formHeader h2 {
+  margin: 0 0 10px 0;
+  font-size: 25px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.formHeader p {
+  margin: 0;
+  color: #605e5c;
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.formPlaceholder {
+  width: 100%;
+  max-width: 1100px;
+  min-width: 700px;
+  margin: 0 auto;
+  padding: 28px 28px 18px 28px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.sectionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 18px 28px;
+}
+
+.sectionFull {
+  grid-column: 1 / -1;
+}
+
+.formPlaceholder h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-top: 0;
+}
+
+.formPlaceholder label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #323130;
+}
+
+.formPlaceholder input[type="text"],
+.formPlaceholder input[type="email"],
+.formPlaceholder input[type="url"],
+.formPlaceholder input[type="number"],
+.formPlaceholder input[type="date"],
+.formPlaceholder textarea,
+.formPlaceholder select {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid #8a8886;
+  border-radius: 3px;
+  box-sizing: border-box;
+  font-size: 14px;
+  background: #ffffff;
+  color: #201f1e;
+}
+
+.formPlaceholder textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.formPlaceholder input:focus,
+.formPlaceholder textarea:focus,
+.formPlaceholder select:focus {
+  outline: 2px solid #0078d4;
+  border-color: #0078d4;
+}
+
+.formPlaceholder input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 4px;
+}
+
+.submitBar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 34px;
+  padding: 18px 0;
+  background: #ffffff;
+  border-top: 1px solid #e1dfdd;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.submitButton {
+  padding: 10px 20px;
+  border: 1px solid #005a9e;
+  border-radius: 4px;
+  background: #005a9e;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.submitButton:hover {
+  background: #004578;
+}
+
+.submitButton:disabled {
+  background: #c8c6c4;
+  border-color: #c8c6c4;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  padding: 10px 20px;
+  border: 1px solid #8a8886;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #323130;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.secondaryButton:hover {
+  background: #f3f2f1;
+}
+
+.secondaryButton:disabled {
+  color: #a19f9d;
+  border-color: #c8c6c4;
+  cursor: not-allowed;
+}
