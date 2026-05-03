@@ -1,9 +1,9 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
   "solution": {
-    "name": "frcc-forms-spfx-portal-client-side-solution",
-    "id": "27a08d10-003c-459a-ab4c-79fc337cb0b6",
-    "version": "1.0.0.0",
+    "name": "frcc-forms-portal-v2",
+    "id": "a32ac351-08dd-4972-92a4-0cadad3f2269",
+    "version": "1.0.1.0",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,
@@ -16,10 +16,10 @@
     },
     "metadata": {
       "shortDescription": {
-        "default": "frcc-forms-spfx-portal description"
+        "default": "FRCC Forms Portal V2"
       },
       "longDescription": {
-        "default": "frcc-forms-spfx-portal description"
+        "default": "FRCC Forms Portal V2"
       },
       "screenshotPaths": [],
       "videoUrl": "",
@@ -27,14 +27,14 @@
     },
     "features": [
       {
-        "title": "frcc-forms-spfx-portal Feature",
-        "description": "The feature that activates elements of the frcc-forms-spfx-portal solution.",
+        "title": "FRCC Forms Portal V2 Feature",
+        "description": "Feature for FRCC Forms Portal V2.",
         "id": "4570590d-896e-4989-96c8-4021ed3b5932",
-        "version": "1.0.0.0"
+        "version": "1.0.1.0"
       }
     ]
   },
   "paths": {
-    "zippedPackage": "solution/frcc-forms-spfx-portal.sppkg"
+    "zippedPackage": "solution/frcc-forms-portal-v2.sppkg"
   }
 }
