@@ -1,0 +1,45 @@
+{
+  "app": {
+    "backgroundColor": "#f8fafc",
+    "fontFamily": "Segoe UI, Arial, sans-serif"
+  },
+  "card": {
+    "background": "#ffffff",
+    "borderColor": "#e5e7eb",
+    "borderRadius": "10px",
+    "padding": "28px",
+    "shadow": "0 4px 14px rgba(0,0,0,0.06)"
+  },
+  "header": {
+    "background": "#005a9e",
+    "textColor": "#ffffff",
+    "fontSize": "18px",
+    "fontWeight": 600
+  },
+  "section": {
+    "headerBackground": "#005a9e",
+    "headerText": "#ffffff",
+    "borderRadius": "6px",
+    "padding": "10px 14px"
+  },
+  "text": {
+    "primary": "#1f2937",
+    "secondary": "#6b7280",
+    "labelSize": "13px"
+  },
+  "input": {
+    "borderColor": "#d1d5db",
+    "borderRadius": "6px",
+    "padding": "10px 12px",
+    "fontSize": "14px",
+    "background": "#ffffff"
+  },
+  "button": {
+    "primaryBackground": "#005a9e",
+    "primaryText": "#ffffff",
+    "secondaryBackground": "#f3f4f6",
+    "borderRadius": "6px",
+    "padding": "10px 18px",
+    "fontWeight": 600
+  }
+}

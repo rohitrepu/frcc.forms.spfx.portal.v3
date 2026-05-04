@@ -1,11 +1,9 @@
 import * as React from 'react';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
-import { SPPermission } from '@microsoft/sp-page-context';
 import styles from './FrccFormsPortal.module.scss';
 import type { IFrccFormsPortalProps } from './IFrccFormsPortalProps';
 import { getActiveForms, updateFormJson, IFormConfig } from '../../../services/FormConfigService';
 import { getListFields, getLookupOptions, IField, ILookupOption } from '../../../services/SchemaService';
-import { getTheme } from '../../../services/ThemeService';
 
 import prerequisiteOverride from '../../../config/forms/prerequisite-placement-override.form.json';
 import courseSubstitution from '../../../config/forms/course-substitution.form.json';
@@ -16,12 +14,6 @@ const WORKBENCH_STYLE_ID = 'frcc-workbench-fix';
 type FormValue = string | number | boolean | string[] | undefined;
 type SectionLayout = 'oneColumn' | 'twoColumn';
 type TransformType = 'trim' | 'uppercase' | 'lowercase' | 'upper' | 'lower';
-
-interface IFormPermissionState {
-  canView: boolean;
-  canAdd: boolean;
-  canEdit: boolean;
-}
 
 interface ISectionConfig {
   title: string;
@@ -175,196 +167,11 @@ export default function FrccFormsPortal(
   const [isGeneratingJson, setIsGeneratingJson] = React.useState<boolean>(false);
   const [errorMessage, setErrorMessage] = React.useState<string>('');
   const [successMessage, setSuccessMessage] = React.useState<string>('');
-  const [formPermissionMap, setFormPermissionMap] = React.useState<{ [formId: number]: IFormPermissionState }>({});
-  const accessCheckCacheRef = React.useRef<{ [cacheKey: string]: IFormPermissionState }>({});
-
-  const theme = getTheme();
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: theme.input.padding,
-    borderRadius: theme.input.borderRadius,
-    border: `1px solid ${theme.input.borderColor}`,
-    fontSize: theme.input.fontSize,
-    background: theme.input.background
-  };
-
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: theme.text.labelSize,
-    fontWeight: 600,
-    marginBottom: '6px',
-    color: theme.text.primary
-  };
-
-  const cardStyle: React.CSSProperties = {
-    background: theme.card.background,
-    border: `1px solid ${theme.card.borderColor}`,
-    borderRadius: theme.card.borderRadius,
-    padding: theme.card.padding,
-    boxShadow: theme.card.shadow
-  };
-
-  const primaryButtonStyle: React.CSSProperties = {
-    background: theme.button.primaryBackground,
-    borderColor: theme.button.primaryBackground,
-    color: theme.button.primaryText,
-    borderRadius: theme.button.borderRadius,
-    padding: theme.button.padding,
-    fontWeight: theme.button.fontWeight
-  };
-
-  const sectionHeaderStyle: React.CSSProperties = {
-    marginTop: 0,
-    padding: theme.section.padding,
-    background: theme.section.headerBackground,
-    color: theme.section.headerText,
-    borderRadius: theme.section.borderRadius,
-    fontSize: '16px',
-    fontWeight: 600
-  };
 
   const modernJsonHeaders: HeadersInit = {
     Accept: 'application/json;odata=nometadata',
     'Content-Type': 'application/json;odata=nometadata;charset=utf-8',
     'odata-version': ''
-  };
-
-  const isSharePointUrl = (url?: string): boolean => {
-    if (!url) return false;
-
-    const lowerUrl = url.toLowerCase();
-
-    return (
-      lowerUrl.indexOf('https://cccs.sharepoint.com/') === 0 ||
-      lowerUrl.indexOf(props.context.pageContext.web.absoluteUrl.toLowerCase()) === 0
-    );
-  };
-
-  const noListPermission: IFormPermissionState = {
-    canView: false,
-    canAdd: false,
-    canEdit: false
-  };
-
-  const readOnlyPermission: IFormPermissionState = {
-    canView: true,
-    canAdd: false,
-    canEdit: false
-  };
-
-  const externalFormPermission: IFormPermissionState = {
-    canView: true,
-    canAdd: false,
-    canEdit: false
-  };
-
-  const getCurrentUserListPermissions = async (listId?: string): Promise<IFormPermissionState> => {
-    if (!listId || listId.trim() === '') return noListPermission;
-
-    const cacheKey = `list:${listId.toLowerCase()}`;
-
-    if (accessCheckCacheRef.current[cacheKey] !== undefined) {
-      return accessCheckCacheRef.current[cacheKey];
-    }
-
-    try {
-      const siteUrl = props.context.pageContext.web.absoluteUrl;
-      const endpoint = `${siteUrl}/_api/web/lists(guid'${listId}')/EffectiveBasePermissions`;
-
-      const response = await props.context.spHttpClient.get(
-        endpoint,
-        SPHttpClient.configurations.v1,
-        {
-          headers: {
-            Accept: 'application/json;odata=nometadata',
-            'odata-version': ''
-          }
-        }
-      );
-
-      if (!response.ok) {
-        accessCheckCacheRef.current[cacheKey] = noListPermission;
-        return noListPermission;
-      }
-
-      const data = await response.json();
-      const permissions = new SPPermission(data);
-
-      const result: IFormPermissionState = {
-        canView: permissions.hasPermission(SPPermission.viewListItems),
-        canAdd: permissions.hasPermission(SPPermission.addListItems),
-        canEdit: permissions.hasPermission(SPPermission.editListItems)
-      };
-
-      accessCheckCacheRef.current[cacheKey] = result;
-      return result;
-    } catch (error: unknown) {
-      console.warn(`Permission check failed for ListId ${listId}. Hiding form from portal.`, error);
-      accessCheckCacheRef.current[cacheKey] = noListPermission;
-      return noListPermission;
-    }
-  };
-
-  const getCurrentUserSharePointUrlPermissions = async (url?: string): Promise<IFormPermissionState> => {
-    if (!url || !isSharePointUrl(url)) return externalFormPermission;
-
-    const cacheKey = `url:${url.toLowerCase()}`;
-
-    if (accessCheckCacheRef.current[cacheKey] !== undefined) {
-      return accessCheckCacheRef.current[cacheKey];
-    }
-
-    try {
-      const response = await props.context.spHttpClient.get(
-        url,
-        SPHttpClient.configurations.v1
-      );
-
-      const result = response.ok ? readOnlyPermission : noListPermission;
-      accessCheckCacheRef.current[cacheKey] = result;
-      return result;
-    } catch (error: unknown) {
-      console.warn(`Access check failed for URL ${url}. Hiding form from portal.`, error);
-      accessCheckCacheRef.current[cacheKey] = noListPermission;
-      return noListPermission;
-    }
-  };
-
-  const getCurrentUserFormPermissions = async (form: IFormConfig): Promise<IFormPermissionState> => {
-    if (form.listId) {
-      return getCurrentUserListPermissions(form.listId);
-    }
-
-    if (isSharePointUrl(form.listUrl)) {
-      return getCurrentUserSharePointUrlPermissions(form.listUrl);
-    }
-
-    return externalFormPermission;
-  };
-
-  const filterFormsByCurrentUserPermissions = async (
-    formConfigs: IFormConfig[]
-  ): Promise<{ visibleForms: IFormConfig[]; permissionMap: { [formId: number]: IFormPermissionState } }> => {
-    const permissionResults = await Promise.all(
-      formConfigs.map(async form => {
-        const permissions = await getCurrentUserFormPermissions(form);
-        return { form, permissions };
-      })
-    );
-
-    const nextPermissionMap: { [formId: number]: IFormPermissionState } = {};
-    const visibleForms: IFormConfig[] = [];
-
-    permissionResults.forEach(result => {
-      nextPermissionMap[result.form.id] = result.permissions;
-
-      if (result.permissions.canView) {
-        visibleForms.push(result.form);
-      }
-    });
-
-    return { visibleForms, permissionMap: nextPermissionMap };
   };
 
   React.useEffect(() => {
@@ -377,11 +184,8 @@ export default function FrccFormsPortal(
           props.context.spHttpClient
         );
 
-        const accessFilteredResult = await filterFormsByCurrentUserPermissions(results);
-
-        setFormPermissionMap(accessFilteredResult.permissionMap);
-        setForms(accessFilteredResult.visibleForms);
-        setSelectedForm(accessFilteredResult.visibleForms[0]);
+        setForms(results);
+        setSelectedForm(results[0]);
       } catch (error: unknown) {
         setErrorMessage(error instanceof Error ? error.message : 'Failed to load forms.');
       } finally {
@@ -630,169 +434,74 @@ export default function FrccFormsPortal(
         hiddenFields.indexOf(field.internalName) === -1
       );
 
-      const hasAnyKeyword = (field: IField, keywords: string[]): boolean => {
-        const lowerName = field.internalName.toLowerCase();
-        const lowerTitle = field.title.toLowerCase();
-        const searchableText = `${lowerName} ${lowerTitle}`;
-
-        return keywords.some(keyword => searchableText.indexOf(keyword) !== -1);
-      };
-
-      const groupedFieldNames: string[] = [];
-
-      const takeFields = (keywords: string[]): string[] => {
-        const matches = visibleFields
-          .filter(field =>
-            groupedFieldNames.indexOf(field.internalName) === -1 &&
-            hasAnyKeyword(field, keywords)
-          )
-          .map(field => field.internalName);
-
-        matches.forEach(fieldName => groupedFieldNames.push(fieldName));
-
-        return matches;
-      };
-
-      const requesterFields = takeFields([
-        'requester',
-        'requestor',
-        'student',
-        'employee',
-        'first',
-        'middle',
-        'last',
-        'name'
-      ]);
-
-      const contactFields = takeFields([
-        'email',
-        'phone',
-        'address',
-        'city',
-        'state',
-        'zip'
-      ]);
-
-      const requestFields = takeFields([
-        'request',
-        'type',
-        'category',
-        'campus',
-        'department',
-        'priority',
-        'summary',
-        'description',
-        'reason',
-        'justification'
-      ]);
-
-      const academicFields = takeFields([
-        'course',
-        'prereq',
-        'prerequisite',
-        'placement',
-        'cutscore',
-        'cut score',
-        'term',
-        'semester',
-        'year',
-        'program',
-        'degree',
-        'major'
-      ]);
-
-      const financialFields = takeFields([
-        'amount',
-        'cost',
-        'total',
-        'budget',
-        'fund',
-        'funding',
-        'grant',
-        'finance',
-        'account'
-      ]);
-
-      const signatureFields = takeFields([
-        'signature',
-        'acknowledge',
-        'acknowledgement',
-        'certification',
-        'completion',
-        'date'
-      ]);
-
-      const reviewFields = visibleFields
+      const requestFields = visibleFields
         .filter(field =>
-          groupedFieldNames.indexOf(field.internalName) === -1 &&
-          (
-            hasAnyKeyword(field, [
-              'supervisor',
-              'advisor',
-              'approver',
-              'approval',
-              'decision',
-              'workflow',
-              'stage',
-              'review',
-              'chair',
-              'dean',
-              'director',
-              'notes'
-            ]) ||
-            field.typeAsString === 'User' ||
-            field.typeAsString === 'Note'
-          )
+          field.internalName.toLowerCase().indexOf('request') !== -1 ||
+          field.internalName.toLowerCase().indexOf('term') !== -1 ||
+          field.internalName.toLowerCase().indexOf('year') !== -1
         )
         .map(field => field.internalName);
 
-      reviewFields.forEach(fieldName => groupedFieldNames.push(fieldName));
+      const studentFields = visibleFields
+        .filter(field =>
+          field.internalName.toLowerCase().indexOf('student') !== -1 ||
+          field.internalName.toLowerCase().indexOf('campus') !== -1 ||
+          field.internalName.toLowerCase().indexOf('email') !== -1
+        )
+        .map(field => field.internalName);
+
+      const courseFields = visibleFields
+        .filter(field =>
+          field.internalName.toLowerCase().indexOf('course') !== -1 ||
+          field.internalName.toLowerCase().indexOf('prereq') !== -1 ||
+          field.internalName.toLowerCase().indexOf('placement') !== -1 ||
+          field.internalName.toLowerCase().indexOf('cutscore') !== -1
+        )
+        .map(field => field.internalName);
+
+      const reviewFields = visibleFields
+        .filter(field =>
+          field.internalName.toLowerCase().indexOf('justification') !== -1 ||
+          field.internalName.toLowerCase().indexOf('chair') !== -1 ||
+          field.internalName.toLowerCase().indexOf('notes') !== -1 ||
+          field.internalName.toLowerCase().indexOf('review') !== -1 ||
+          field.typeAsString === 'User' ||
+          field.typeAsString === 'Note'
+        )
+        .map(field => field.internalName);
+
+      const alreadyGrouped = requestFields
+        .concat(studentFields)
+        .concat(courseFields)
+        .concat(reviewFields);
 
       const otherFields = visibleFields
-        .filter(field => groupedFieldNames.indexOf(field.internalName) === -1)
+        .filter(field => alreadyGrouped.indexOf(field.internalName) === -1)
         .map(field => field.internalName);
 
       const sections: ISectionConfig[] = [
         {
-          title: 'Requester / Student Information',
-          description: 'Basic requester, student, or employee identity fields.',
-          layout: 'twoColumn' as const,
-          fields: requesterFields
-        },
-        {
-          title: 'Contact Information',
-          description: 'Email, phone, address, and related contact details.',
-          layout: 'twoColumn' as const,
-          fields: contactFields
-        },
-        {
-          title: 'Request Details',
-          description: 'Main request details and supporting explanation.',
+          title: 'Request Information',
+          description: 'Basic request details.',
           layout: 'twoColumn' as const,
           fields: requestFields
         },
         {
-          title: 'Academic / Course Information',
-          description: 'Course, term, program, and academic details.',
+          title: 'Student Information',
+          description: 'Student and contact information.',
           layout: 'twoColumn' as const,
-          fields: academicFields
+          fields: studentFields
         },
         {
-          title: 'Financial / Budget Information',
-          description: 'Budget, funding, cost, and finance-related fields.',
+          title: 'Course Details',
+          description: 'Course, prerequisite, placement, and related details.',
           layout: 'twoColumn' as const,
-          fields: financialFields
+          fields: courseFields
         },
         {
-          title: 'Acknowledgement / Signature',
-          description: 'Acknowledgement, certification, date, and signature fields.',
-          layout: 'twoColumn' as const,
-          fields: signatureFields
-        },
-        {
-          title: 'Review / Approval',
-          description: 'Review notes, approvals, decisions, and internal follow-up fields.',
-          layout: 'twoColumn' as const,
+          title: 'Review Information',
+          description: 'Review notes, approvals, and internal follow-up fields.',
+          layout: 'oneColumn' as const,
           fields: reviewFields
         }
       ].filter(section => section.fields.length > 0);
@@ -920,13 +629,6 @@ export default function FrccFormsPortal(
       return;
     }
 
-    const selectedPermissions = formPermissionMap[selectedForm.id];
-
-    if (!selectedPermissions || !selectedPermissions.canAdd) {
-      setErrorMessage('You have read-only access to this form. You can view existing requests, but you cannot submit a new request.');
-      return;
-    }
-
     const renderableFields = getRenderableFields();
 
     if (!validateForm(renderableFields)) {
@@ -1000,8 +702,6 @@ export default function FrccFormsPortal(
   const renderableFields = getRenderableFields();
   const accentColor = config.theme && config.theme.accentColor ? config.theme.accentColor : '#005a9e';
   const selectedFormIsPdf = isPdfForm(selectedForm?.listUrl);
-  const selectedFormPermissions = selectedForm ? formPermissionMap[selectedForm.id] : undefined;
-  const selectedCanSubmit = selectedFormPermissions ? selectedFormPermissions.canAdd : false;
 
   const renderField = (field: IField): React.ReactElement => {
     const fieldUiConfig = config.fields ? config.fields[field.internalName] : undefined;
@@ -1016,21 +716,21 @@ export default function FrccFormsPortal(
 
     return (
       <div key={field.internalName} style={{ marginBottom: '12px' }}>
-        <label style={labelStyle}>
+        <label>
           {label}
           {field.required || (config.validation && config.validation[field.internalName] && config.validation[field.internalName].required) ? ' *' : ''}
         </label>
 
         {field.typeAsString === 'Text' && (
-          <input type="text" placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined} disabled={readOnly} style={inputStyle} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)} />
+          <input type="text" placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined} disabled={readOnly} style={{ width: '100%' }} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)} />
         )}
 
         {field.typeAsString === 'Note' && (
-          <textarea placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined} disabled={readOnly} style={inputStyle} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)} />
+          <textarea placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined} disabled={readOnly} style={{ width: '100%' }} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)} />
         )}
 
         {field.typeAsString === 'Choice' && (
-          <select disabled={readOnly} style={inputStyle} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)}>
+          <select disabled={readOnly} style={{ width: '100%' }} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)}>
             <option value="">Select...</option>
             {field.choices?.map((choice: string) => (
               <option key={choice} value={choice}>{choice}</option>
@@ -1039,7 +739,7 @@ export default function FrccFormsPortal(
         )}
 
         {field.typeAsString === 'MultiChoice' && (
-          <select multiple disabled={readOnly} style={{ ...inputStyle, minHeight: '80px' }} value={(value as string[]) || []} onChange={(event) => {
+          <select multiple disabled={readOnly} style={{ width: '100%', minHeight: '80px' }} value={(value as string[]) || []} onChange={(event) => {
             const selectedValues = Array.from(event.target.selectedOptions).map(option => option.value);
             handleChange(field.internalName, selectedValues);
           }}>
@@ -1050,7 +750,7 @@ export default function FrccFormsPortal(
         )}
 
         {(field.typeAsString === 'Number' || field.typeAsString === 'Currency') && (
-          <input type="number" placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined} disabled={readOnly} style={inputStyle} value={value === undefined ? '' : String(value)} onChange={(event) => {
+          <input type="number" placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined} disabled={readOnly} style={{ width: '100%' }} value={value === undefined ? '' : String(value)} onChange={(event) => {
             const nextValue = event.target.value;
             handleChange(field.internalName, nextValue === '' ? undefined : Number(nextValue));
           }} />
@@ -1061,15 +761,15 @@ export default function FrccFormsPortal(
         )}
 
         {field.typeAsString === 'DateTime' && (
-          <input type="date" disabled={readOnly} style={inputStyle} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)} />
+          <input type="date" disabled={readOnly} style={{ width: '100%' }} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)} />
         )}
 
         {field.typeAsString === 'User' && (
-          <input type="email" placeholder={fieldUiConfig && fieldUiConfig.placeholder ? fieldUiConfig.placeholder : 'Enter user email'} disabled={readOnly} style={inputStyle} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)} />
+          <input type="email" placeholder={fieldUiConfig && fieldUiConfig.placeholder ? fieldUiConfig.placeholder : 'Enter user email'} disabled={readOnly} style={{ width: '100%' }} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)} />
         )}
 
         {field.typeAsString === 'Lookup' && (
-          <select disabled={readOnly} style={inputStyle} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value === '' ? undefined : Number(event.target.value))}>
+          <select disabled={readOnly} style={{ width: '100%' }} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value === '' ? undefined : Number(event.target.value))}>
             <option value="">Select...</option>
             {(lookupOptions[field.internalName] || []).map((option: ILookupOption) => (
               <option key={option.id} value={option.id}>{option.title}</option>
@@ -1078,15 +778,15 @@ export default function FrccFormsPortal(
         )}
 
         {field.typeAsString === 'URL' && (
-          <input type="url" placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined} disabled={readOnly} style={inputStyle} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)} />
+          <input type="url" placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined} disabled={readOnly} style={{ width: '100%' }} value={String(value || '')} onChange={(event) => handleChange(field.internalName, event.target.value)} />
         )}
 
         {['Text', 'Note', 'Choice', 'MultiChoice', 'Number', 'Currency', 'Boolean', 'DateTime', 'User', 'Lookup', 'URL'].indexOf(field.typeAsString) === -1 && (
-          <input type="text" disabled placeholder={`Unsupported: ${field.typeAsString}`} style={inputStyle} />
+          <input type="text" disabled placeholder={`Unsupported: ${field.typeAsString}`} style={{ width: '100%' }} />
         )}
 
         {help && (
-          <div style={{ fontSize: '12px', color: theme.text.secondary }}>{help}</div>
+          <div style={{ fontSize: '12px', color: '#666' }}>{help}</div>
         )}
 
         {validationWarnings[field.internalName] && (
@@ -1119,12 +819,15 @@ export default function FrccFormsPortal(
     return (
       <div style={{
         maxWidth: '760px',
-        ...cardStyle
+        border: '1px solid #e1dfdd',
+        borderRadius: '4px',
+        padding: '28px',
+        background: '#ffffff'
       }}>
         <h3 style={{
           marginTop: 0,
           marginBottom: '12px',
-          color: theme.text.primary
+          color: '#1f2937'
         }}>
           PDF Form
         </h3>
@@ -1132,7 +835,7 @@ export default function FrccFormsPortal(
         <p style={{
           fontSize: '14px',
           lineHeight: '1.6',
-          color: theme.text.primary,
+          color: '#323130',
           marginBottom: '18px'
         }}>
           This form is provided as a PDF instead of an online SharePoint form. Open the PDF in a new tab to download it, fill it out, print it, or save a completed copy.
@@ -1142,7 +845,10 @@ export default function FrccFormsPortal(
           type="button"
           onClick={() => window.open(selectedForm.listUrl, '_blank', 'noopener,noreferrer')}
           className={styles.submitButton}
-          style={primaryButtonStyle}
+          style={{
+            background: accentColor,
+            borderColor: accentColor
+          }}
         >
           Open PDF Form
         </button>
@@ -1150,7 +856,7 @@ export default function FrccFormsPortal(
         <div style={{
           marginTop: '18px',
           fontSize: '12px',
-          color: theme.text.secondary,
+          color: '#605e5c',
           wordBreak: 'break-all'
         }}>
           {selectedForm.listUrl}
@@ -1165,7 +871,10 @@ export default function FrccFormsPortal(
     return (
       <div style={{
         maxWidth: '900px',
-        ...cardStyle,
+        border: '1px solid #e1dfdd',
+        borderRadius: '4px',
+        padding: '20px 24px',
+        background: '#ffffff',
         marginBottom: '26px'
       }}>
         <h3 style={{
@@ -1179,51 +888,35 @@ export default function FrccFormsPortal(
         <p style={{
           fontSize: '14px',
           lineHeight: '1.6',
-          color: theme.text.primary,
+          color: '#323130',
           marginBottom: '16px'
         }}>
-          {selectedCanSubmit
-            ? 'Start a new request here, or open the SharePoint list view to review, search, edit, or display existing submissions.'
-            : 'You have read-only access to this form. You can open the SharePoint list view to review existing submissions, but you cannot submit a new request from the portal.'}
+          Start a new request here, or open the SharePoint list view to review, search, edit, or display existing submissions.
         </p>
-
-        {!selectedCanSubmit && (
-          <div style={{
-            marginBottom: '16px',
-            padding: '10px 12px',
-            border: '1px solid #f1c232',
-            borderRadius: '6px',
-            background: '#fff8dc',
-            color: '#5f4b00',
-            fontSize: '13px',
-            lineHeight: '1.5'
-          }}>
-            Read-only access: submission is disabled because your account does not have Add Items permission on this list.
-          </div>
-        )}
 
         <div style={{
           display: 'flex',
           flexWrap: 'wrap',
           gap: '12px'
         }}>
-          {selectedCanSubmit && (
-            <button
-              type="button"
-              className={styles.submitButton}
-              style={primaryButtonStyle}
-              onClick={() => {
-                setSuccessMessage('');
-                setErrorMessage('');
-                setFormData({});
-                setValidationErrors({});
-                setValidationWarnings({});
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            >
-              Start New Request
-            </button>
-          )}
+          <button
+            type="button"
+            className={styles.submitButton}
+            style={{
+              background: accentColor,
+              borderColor: accentColor
+            }}
+            onClick={() => {
+              setSuccessMessage('');
+              setErrorMessage('');
+              setFormData({});
+              setValidationErrors({});
+              setValidationWarnings({});
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          >
+            Start New Request
+          </button>
 
           {selectedForm.listUrl && (
             <button
@@ -1315,14 +1008,16 @@ export default function FrccFormsPortal(
       return (
         <div key={section.title} style={{ marginBottom: '28px' }}>
           <h3 style={{
-            ...sectionHeaderStyle,
-            marginBottom: section.description ? '10px' : '18px'
+            borderBottom: `1px solid ${accentColor}`,
+            paddingBottom: '8px',
+            marginBottom: section.description ? '6px' : '16px',
+            color: '#1f2937'
           }}>
             {section.title}
           </h3>
 
           {section.description && (
-            <div style={{ fontSize: '13px', color: theme.text.secondary, marginBottom: '16px' }}>
+            <div style={{ fontSize: '13px', color: '#605e5c', marginBottom: '16px' }}>
               {section.description}
             </div>
           )}
@@ -1346,8 +1041,10 @@ export default function FrccFormsPortal(
       sectionElements.push(
         <div key="other-fields" style={{ marginBottom: '28px' }}>
           <h3 style={{
-            ...sectionHeaderStyle,
-            marginBottom: '18px'
+            borderBottom: `1px solid ${accentColor}`,
+            paddingBottom: '8px',
+            marginBottom: '16px',
+            color: '#1f2937'
           }}>
             Other Information
           </h3>
@@ -1367,14 +1064,7 @@ export default function FrccFormsPortal(
   };
 
   return (
-    <div
-      className={styles.portalLayout}
-      style={{
-        background: theme.app.backgroundColor,
-        fontFamily: theme.app.fontFamily,
-        minHeight: '100vh'
-      }}
-    >
+    <div className={styles.portalLayout}>
       <div className={styles.leftNav}>
         <h3>FRCC Forms</h3>
 
@@ -1446,22 +1136,9 @@ export default function FrccFormsPortal(
             <div>No editable fields found for this list.</div>
           )}
 
-          {!isLoadingFields && selectedForm && !selectedFormIsPdf && selectedCanSubmit && renderableFields.length > 0 && renderSections()}
+          {!isLoadingFields && selectedForm && !selectedFormIsPdf && renderableFields.length > 0 && renderSections()}
 
-          {!isLoadingFields && selectedForm && !selectedFormIsPdf && !selectedCanSubmit && renderableFields.length > 0 && (
-            <div style={{
-              ...cardStyle,
-              maxWidth: '900px',
-              marginBottom: '26px'
-            }}>
-              <h3 style={{ marginTop: 0, color: theme.text.primary }}>Read-only access</h3>
-              <p style={{ fontSize: '14px', lineHeight: '1.6', color: theme.text.primary, marginBottom: 0 }}>
-                This form is visible because you have Read access to the list. New request fields and submission controls are hidden because you do not have Add Items permission. Use View Existing Requests above to review the list.
-              </p>
-            </div>
-          )}
-
-          {!isLoadingFields && selectedForm && !selectedFormIsPdf && selectedCanSubmit && renderableFields.length > 0 && (
+          {!isLoadingFields && selectedForm && !selectedFormIsPdf && renderableFields.length > 0 && (
             <div className={styles.submitBar}>
               <button
                 type="button"
@@ -1485,7 +1162,10 @@ export default function FrccFormsPortal(
                 }}
                 disabled={isSubmitting || isGeneratingJson}
                 className={styles.submitButton}
-                style={primaryButtonStyle}
+                style={{
+                  background: accentColor,
+                  borderColor: accentColor
+                }}
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Request'}
               </button>
