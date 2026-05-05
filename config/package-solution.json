@@ -1,9 +1,9 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
   "solution": {
-    "name": "frcc-forms-portal-v2",
-    "id": "a32ac351-08dd-4972-92a4-0cadad3f2269",
-    "version": "1.0.1.0",
+    "name": "frcc-forms-portal-v3",
+    "id": "3999aa3f-0f62-4d6c-b719-937be374bde1",
+    "version": "3.0.0.0",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,
@@ -27,14 +27,14 @@
     },
     "features": [
       {
-        "title": "FRCC Forms Portal V2 Feature",
+        "title": "FRCC Forms Portal V3 Feature",
         "description": "Feature for FRCC Forms Portal V2.",
-        "id": "4570590d-896e-4989-96c8-4021ed3b5932",
+        "id": "afa6a4a7-b90d-4cd3-acf3-ea514a8c602e",
         "version": "1.0.1.0"
       }
     ]
   },
   "paths": {
-    "zippedPackage": "solution/frcc-forms-portal-v2.sppkg"
+    "zippedPackage": "solution/frcc-forms-portal-v3.sppkg"
   }
 }
