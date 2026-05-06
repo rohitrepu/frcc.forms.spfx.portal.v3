@@ -23,7 +23,7 @@ import studentWaiver from "../../../config/forms/student-waiver.form.json";
 const WORKBENCH_STYLE_ID = "frcc-workbench-fix";
 
 type FormValue = string | number | boolean | string[] | undefined;
-type SectionLayout = "oneColumn" | "twoColumn";
+type SectionLayout = "oneColumn" | "twoColumn" | "single-column" | "two-column";
 type TransformType = "trim" | "uppercase" | "lowercase" | "upper" | "lower";
 type NavView = "all" | "favorites" | "recent" | "popular";
 
@@ -47,9 +47,15 @@ interface ISectionConfig {
 }
 
 interface IFieldUiConfig {
+  label?: string;
+  description?: string;
+  helpText?: string;
   placeholder?: string;
-  width?: "half" | "full";
+  width?: "half" | "full" | "100%";
   readOnly?: boolean;
+  hidden?: boolean;
+  rows?: number;
+  buttonText?: string;
 }
 
 interface IValidationRule {
@@ -61,16 +67,39 @@ interface IValidationRule {
   maxLength?: number;
 }
 
+interface IPeopleSuggestion {
+  key: string;
+  displayName: string;
+  email: string;
+  jobTitle?: string;
+  department?: string;
+}
+
+interface IAttachmentItem {
+  id: string;
+  file: File;
+}
+
 interface IFormJsonConfig {
+  title?: string;
+  description?: string;
+  layout?:
+    | "single-column"
+    | "two-column"
+    | {
+        rows?: string[][];
+      };
+  hideFormHub?: boolean;
+  hideSectionHeaders?: boolean;
   hiddenFields?: string[];
   fieldOrder?: string[];
   labels?: { [internalName: string]: string };
   helpText?: { [internalName: string]: string };
   sections?: ISectionConfig[];
-  layout?: {
-    rows?: string[][];
-  };
   fields?: {
+    [internalName: string]: IFieldUiConfig;
+  };
+  fieldOverrides?: {
     [internalName: string]: IFieldUiConfig;
   };
   validation?: {
@@ -84,6 +113,43 @@ interface IFormJsonConfig {
   };
   theme?: {
     accentColor?: string;
+    headerColor?: string;
+    pageBackground?: string;
+    backgroundColor?: string;
+    cardBackground?: string;
+    cardBackgroundColor?: string;
+    cardMaxWidth?: string;
+    cardBorderRadius?: string;
+    cardPadding?: string;
+    fontFamily?: string;
+    labelFontSize?: string;
+    labelColor?: string;
+    descriptionColor?: string;
+    inputBackground?: string;
+    inputBorder?: string;
+    buttonBackground?: string;
+  };
+  logo?: {
+    type?: "text" | "image";
+    text?: string;
+    url?: string;
+    backgroundColor?: string;
+    color?: string;
+    shape?: "circle" | "rounded" | "square";
+  };
+  intro?: {
+    showUserNotice?: boolean;
+    userNoticeText?: string;
+  };
+  submit?: {
+    text?: string;
+    align?: "left" | "center" | "right";
+    backgroundColor?: string;
+  };
+  footer?: {
+    showPoweredBy?: boolean;
+    poweredByText?: string;
+    text?: string;
   };
 }
 
@@ -269,6 +335,27 @@ function saveToLocalStorage(key: string, value: unknown): void {
   }
 }
 
+function normalizeLayout(layout?: SectionLayout): "oneColumn" | "twoColumn" {
+  if (layout === "oneColumn" || layout === "single-column") return "oneColumn";
+  return "twoColumn";
+}
+
+function hasFormSpecificPresentation(config: IFormJsonConfig): boolean {
+  return Boolean(
+    config.title ||
+      config.description ||
+      config.logo ||
+      config.intro ||
+      config.footer ||
+      config.hideFormHub ||
+      config.hideSectionHeaders ||
+      config.theme?.pageBackground ||
+      config.theme?.backgroundColor ||
+      config.theme?.cardMaxWidth ||
+      config.theme?.cardPadding,
+  );
+}
+
 export default function FrccFormsPortal(
   props: IFrccFormsPortalProps,
 ): React.ReactElement<IFrccFormsPortalProps> {
@@ -310,9 +397,28 @@ export default function FrccFormsPortal(
   }>({});
   const [canManageFormConfiguration, setCanManageFormConfiguration] =
     React.useState<boolean>(false);
+  const [attachmentItems, setAttachmentItems] = React.useState<IAttachmentItem[]>([]);
+  const [activePeopleFieldName, setActivePeopleFieldName] = React.useState<string>("");
+  const [peopleSuggestions, setPeopleSuggestions] = React.useState<{
+    [fieldName: string]: IPeopleSuggestion[];
+  }>({});
+  const attachmentInputRef = React.useRef<HTMLInputElement | null>(null);
+  const peopleSearchTimeoutRef = React.useRef<number | undefined>(undefined);
   const accessCheckCacheRef = React.useRef<{
     [cacheKey: string]: IFormPermissionState;
   }>({});
+
+  const setAccessCheckCache = (
+    cacheKey: string,
+    permissions: IFormPermissionState,
+  ): IFormPermissionState => {
+    accessCheckCacheRef.current = {
+      ...accessCheckCacheRef.current,
+      [cacheKey]: permissions,
+    };
+
+    return permissions;
+  };
 
   const theme = getTheme();
 
@@ -607,8 +713,7 @@ export default function FrccFormsPortal(
       );
 
       if (!response.ok) {
-        accessCheckCacheRef.current[cacheKey] = noListPermission;
-        return noListPermission;
+        return setAccessCheckCache(cacheKey, noListPermission);
       }
 
       const data = await response.json();
@@ -620,15 +725,13 @@ export default function FrccFormsPortal(
         canEdit: permissions.hasPermission(SPPermission.editListItems),
       };
 
-      accessCheckCacheRef.current[cacheKey] = result;
-      return result;
+      return setAccessCheckCache(cacheKey, result);
     } catch (error: unknown) {
       console.warn(
         `Permission check failed for ListId ${listId}. Hiding form from portal.`,
         error,
       );
-      accessCheckCacheRef.current[cacheKey] = noListPermission;
-      return noListPermission;
+      return setAccessCheckCache(cacheKey, noListPermission);
     }
   };
 
@@ -650,15 +753,13 @@ export default function FrccFormsPortal(
       );
 
       const result = response.ok ? readOnlyPermission : noListPermission;
-      accessCheckCacheRef.current[cacheKey] = result;
-      return result;
+      return setAccessCheckCache(cacheKey, result);
     } catch (error: unknown) {
       console.warn(
         `Access check failed for URL ${url}. Hiding form from portal.`,
         error,
       );
-      accessCheckCacheRef.current[cacheKey] = noListPermission;
-      return noListPermission;
+      return setAccessCheckCache(cacheKey, noListPermission);
     }
   };
 
@@ -757,6 +858,9 @@ export default function FrccFormsPortal(
         setValidationErrors({});
         setValidationWarnings({});
         setLookupOptions({});
+        setAttachmentItems([]);
+        setPeopleSuggestions({});
+        setActivePeopleFieldName("");
         setIsLoadingFields(false);
         return;
       }
@@ -777,6 +881,9 @@ export default function FrccFormsPortal(
         setValidationErrors({});
         setValidationWarnings({});
         setLookupOptions({});
+        setAttachmentItems([]);
+        setPeopleSuggestions({});
+        setActivePeopleFieldName("");
 
         const siteUrl = props.context.pageContext.web.absoluteUrl;
 
@@ -839,6 +946,37 @@ export default function FrccFormsPortal(
   const getConfig = (): IFormJsonConfig =>
     parseFormJson(selectedForm?.formJson, selectedForm?.formKey);
 
+  const getFieldUiConfig = (fieldName: string): IFieldUiConfig | undefined => {
+    const currentConfig = getConfig();
+
+    return (
+      (currentConfig.fieldOverrides && currentConfig.fieldOverrides[fieldName]) ||
+      (currentConfig.fields && currentConfig.fields[fieldName])
+    );
+  };
+
+  const getConfigLabel = (field: IField): string => {
+    const currentConfig = getConfig();
+    const fieldUiConfig = getFieldUiConfig(field.internalName);
+
+    return (
+      fieldUiConfig?.label ||
+      (currentConfig.labels && currentConfig.labels[field.internalName]) ||
+      field.title
+    );
+  };
+
+  const getConfigHelpText = (field: IField): string | undefined => {
+    const currentConfig = getConfig();
+    const fieldUiConfig = getFieldUiConfig(field.internalName);
+
+    return (
+      fieldUiConfig?.description ||
+      fieldUiConfig?.helpText ||
+      (currentConfig.helpText ? currentConfig.helpText[field.internalName] : undefined)
+    );
+  };
+
   const handleChange = (fieldName: string, value: FormValue): void => {
     const config = getConfig();
     const transformedValue = applyTransform(
@@ -860,6 +998,180 @@ export default function FrccFormsPortal(
       ...previous,
       [fieldName]: "",
     }));
+  };
+
+  const queuePeopleSearch = (fieldName: string, query: string): void => {
+    setActivePeopleFieldName(fieldName);
+
+    if (peopleSearchTimeoutRef.current !== undefined) {
+      window.clearTimeout(peopleSearchTimeoutRef.current);
+    }
+
+    const trimmedQuery = query.trim();
+
+    if (trimmedQuery.length < 2) {
+      setPeopleSuggestions((previous) => ({
+        ...previous,
+        [fieldName]: [],
+      }));
+      return;
+    }
+
+    peopleSearchTimeoutRef.current = window.setTimeout(() => {
+      searchPeople(fieldName, trimmedQuery).catch((error: unknown) => {
+        console.warn("People picker search failed.", error);
+      });
+    }, 250);
+  };
+
+  const searchPeople = async (
+    fieldName: string,
+    query: string,
+  ): Promise<void> => {
+    const siteUrl = props.context.pageContext.web.absoluteUrl;
+    const endpoint = `${siteUrl}/_api/SP.UI.ApplicationPages.ClientPeoplePickerWebServiceInterface.clientPeoplePickerSearchUser`;
+
+    const response = await props.context.spHttpClient.post(
+      endpoint,
+      SPHttpClient.configurations.v1,
+      {
+        headers: {
+          Accept: "application/json;odata=verbose",
+          "Content-Type": "application/json;odata=verbose;charset=utf-8",
+          "odata-version": "",
+        },
+        body: JSON.stringify({
+          queryParams: {
+            __metadata: {
+              type: "SP.UI.ApplicationPages.ClientPeoplePickerQueryParameters",
+            },
+            AllowEmailAddresses: true,
+            AllowMultipleEntities: false,
+            AllUrlZones: false,
+            MaximumEntitySuggestions: 8,
+            PrincipalSource: 15,
+            PrincipalType: 1,
+            QueryString: query,
+            Required: false,
+            SharePointGroupID: 0,
+            UrlZone: 0,
+            UrlZoneSpecified: false,
+          },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      setPeopleSuggestions((previous) => ({
+        ...previous,
+        [fieldName]: [],
+      }));
+      return;
+    }
+
+    const data = await response.json();
+    const rawResult =
+      data?.d?.ClientPeoplePickerSearchUser ||
+      data?.ClientPeoplePickerSearchUser ||
+      "[]";
+
+    const parsed = JSON.parse(rawResult) as Array<{
+      Key?: string;
+      DisplayText?: string;
+      EntityData?: {
+        Email?: string;
+        Title?: string;
+        Department?: string;
+      };
+    }>;
+
+    const suggestions = parsed
+      .map((item) => {
+        const email = item.EntityData?.Email || "";
+        return {
+          key: item.Key || email || item.DisplayText || "",
+          displayName: item.DisplayText || email || item.Key || "Unknown user",
+          email,
+          jobTitle: item.EntityData?.Title || "",
+          department: item.EntityData?.Department || "",
+        };
+      })
+      .filter((item) => item.email !== "");
+
+    setPeopleSuggestions((previous) => ({
+      ...previous,
+      [fieldName]: suggestions,
+    }));
+  };
+
+  const selectPeopleSuggestion = (
+    fieldName: string,
+    suggestion: IPeopleSuggestion,
+  ): void => {
+    handleChange(fieldName, suggestion.email);
+    setPeopleSuggestions((previous) => ({
+      ...previous,
+      [fieldName]: [],
+    }));
+    setActivePeopleFieldName("");
+  };
+
+  const escapeODataString = (value: string): string => value.replace(/'/g, "''");
+
+  const uploadAttachmentsToItem = async (
+    listId: string,
+    itemId: number,
+  ): Promise<void> => {
+    if (attachmentItems.length === 0) return;
+
+    const siteUrl = props.context.pageContext.web.absoluteUrl;
+
+    for (const attachment of attachmentItems) {
+      const fileName = escapeODataString(attachment.file.name);
+      const endpoint = `${siteUrl}/_api/web/lists(guid'${listId}')/items(${itemId})/AttachmentFiles/add(FileName='${fileName}')`;
+      const fileBuffer = await attachment.file.arrayBuffer();
+
+      const response = await props.context.spHttpClient.post(
+        endpoint,
+        SPHttpClient.configurations.v1,
+        {
+          headers: {
+            Accept: "application/json;odata=nometadata",
+            "Content-Type": "application/octet-stream",
+            "odata-version": "",
+          },
+          body: fileBuffer,
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Attachment upload failed for ${attachment.file.name}. Status: ${response.status}. Details: ${errorText}`,
+        );
+      }
+    }
+  };
+
+  const handleAttachmentSelection = (files: FileList | null): void => {
+    if (!files || files.length === 0) return;
+
+    const selectedFiles = Array.from(files).map((file) => ({
+      id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+      file,
+    }));
+
+    setAttachmentItems((previous) => [...previous, ...selectedFiles]);
+
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (attachmentId: string): void => {
+    setAttachmentItems((previous) =>
+      previous.filter((attachment) => attachment.id !== attachmentId),
+    );
   };
 
   const resolveUserId = async (email: string): Promise<number> => {
@@ -894,25 +1206,37 @@ export default function FrccFormsPortal(
     const hiddenFields = config.hiddenFields || [];
     const fieldOrder = config.fieldOrder || [];
 
-    const visibleFields = fields.filter(
-      (field) => hiddenFields.indexOf(field.internalName) === -1,
+    const visibleFields = fields.filter((field) => {
+      const fieldUiConfig = getFieldUiConfig(field.internalName);
+
+      return (
+        hiddenFields.indexOf(field.internalName) === -1 &&
+        fieldUiConfig?.hidden !== true
+      );
+    });
+
+    const sectionFieldOrder = (config.sections || []).reduce(
+      (accumulator: string[], section) => accumulator.concat(section.fields),
+      [],
     );
 
-    if (fieldOrder.length === 0) {
+    const effectiveOrder = fieldOrder.length > 0 ? fieldOrder : sectionFieldOrder;
+
+    if (effectiveOrder.length === 0) {
       return visibleFields;
     }
 
     const ordered: IField[] = [];
 
-    fieldOrder.forEach((fieldName) => {
+    effectiveOrder.forEach((fieldName) => {
       const match = visibleFields.filter(
         (field) => field.internalName === fieldName,
       )[0];
-      if (match) ordered.push(match);
+      if (match && ordered.indexOf(match) === -1) ordered.push(match);
     });
 
     visibleFields.forEach((field) => {
-      if (fieldOrder.indexOf(field.internalName) === -1) {
+      if (ordered.indexOf(field) === -1) {
         ordered.push(field);
       }
     });
@@ -1401,8 +1725,26 @@ export default function FrccFormsPortal(
         );
       }
 
-      setSuccessMessage("Form submitted successfully.");
+      const createdItem = await response.json();
+      const createdItemId = Number(createdItem.Id || createdItem.ID);
+
+      if (attachmentItems.length > 0) {
+        if (Number.isNaN(createdItemId)) {
+          throw new Error(
+            "Form submitted, but the new SharePoint item ID could not be read for attachment upload.",
+          );
+        }
+
+        await uploadAttachmentsToItem(selectedForm.listId, createdItemId);
+      }
+
+      setSuccessMessage(
+        attachmentItems.length > 0
+          ? "Form submitted successfully with attachments."
+          : "Form submitted successfully.",
+      );
       setFormData({});
+      setAttachmentItems([]);
       setValidationErrors({});
       setValidationWarnings({});
     } catch (error: unknown) {
@@ -1418,6 +1760,9 @@ export default function FrccFormsPortal(
     setSelectedForm(form);
     setSuccessMessage("");
     setErrorMessage("");
+    setAttachmentItems([]);
+    setPeopleSuggestions({});
+    setActivePeopleFieldName("");
 
     const nextRecent = [
       form.id,
@@ -1531,6 +1876,14 @@ export default function FrccFormsPortal(
     config.theme && config.theme.accentColor
       ? config.theme.accentColor
       : "#005a9e";
+  const formSpecificPresentation = hasFormSpecificPresentation(config);
+  const formPageBackground =
+    config.theme?.pageBackground || config.theme?.backgroundColor || "#eef3f8";
+  const formCardBackground =
+    config.theme?.cardBackground || config.theme?.cardBackgroundColor || "#ffffff";
+  const formCardMaxWidth = config.theme?.cardMaxWidth || "1180px";
+  const formCardPadding = config.theme?.cardPadding || "24px";
+  const formCardBorderRadius = config.theme?.cardBorderRadius || "16px";
   const selectedFormIsPdf = isPdfForm(selectedForm?.listUrl);
   const selectedFormPermissions = selectedForm
     ? formPermissionMap[selectedForm.id]
@@ -1538,6 +1891,17 @@ export default function FrccFormsPortal(
   const selectedCanSubmit = selectedFormPermissions
     ? selectedFormPermissions.canAdd
     : false;
+  const submitAlign =
+    config.submit?.align === "center"
+      ? "center"
+      : config.submit?.align === "right"
+        ? "flex-end"
+        : "flex-start";
+  const submitButtonText = config.submit?.text || "Submit Request";
+  const submitButtonBackground =
+    config.submit?.backgroundColor ||
+    config.theme?.buttonBackground ||
+    theme.button.primaryBackground;
 
   const renderMetadataChip = (
     label: string,
@@ -1679,7 +2043,7 @@ export default function FrccFormsPortal(
   };
 
   const renderEnterpriseFormHeader = (): React.ReactElement | null => {
-    if (!selectedForm) return null;
+    if (!selectedForm || formSpecificPresentation) return null;
 
     const formType =
       getFormType(selectedForm) || (selectedFormIsPdf ? "PDF" : "SharePoint");
@@ -1914,40 +2278,174 @@ export default function FrccFormsPortal(
     );
   };
 
-  const renderField = (field: IField): React.ReactElement => {
-    const fieldUiConfig = config.fields
-      ? config.fields[field.internalName]
-      : undefined;
+  const renderConfiguredAttachmentField = (): React.ReactElement | null => {
+    const fieldUiConfig = getFieldUiConfig("Attachments");
 
-    const label =
-      config.labels && config.labels[field.internalName]
-        ? config.labels[field.internalName]
-        : field.title;
+    if (fieldUiConfig?.hidden === true) return null;
 
-    const help = config.helpText
-      ? config.helpText[field.internalName]
-      : undefined;
-    const value = formData[field.internalName];
-    const readOnly = fieldUiConfig && fieldUiConfig.readOnly === true;
+    const label = fieldUiConfig?.label || "Attachments";
+    const help = fieldUiConfig?.description || fieldUiConfig?.helpText;
+    const buttonText = fieldUiConfig?.buttonText || "Add attachments";
 
     return (
-      <div key={field.internalName} style={{ marginBottom: "12px" }}>
-        <label style={labelStyle}>
+      <div
+        key="Attachments"
+        style={{ marginBottom: formSpecificPresentation ? "30px" : "12px" }}
+      >
+        <label
+          style={{
+            ...labelStyle,
+            fontSize: config.theme?.labelFontSize || labelStyle.fontSize,
+            fontWeight: formSpecificPresentation ? 500 : labelStyle.fontWeight,
+            color: config.theme?.labelColor || labelStyle.color,
+            marginBottom: "8px",
+          }}
+        >
           {label}
-          {field.required ||
-          (config.validation &&
-            config.validation[field.internalName] &&
-            config.validation[field.internalName].required)
-            ? " *"
-            : ""}
         </label>
+
+        {help && (
+          <div
+            style={{
+              fontSize: formSpecificPresentation ? "13px" : "12px",
+              color: config.theme?.descriptionColor || theme.text.secondary,
+              lineHeight: 1.55,
+              marginBottom: "10px",
+            }}
+          >
+            {help}
+          </div>
+        )}
+
+        <input
+          ref={attachmentInputRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={(event) => handleAttachmentSelection(event.target.files)}
+        />
+
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => attachmentInputRef.current?.click()}
+          style={{
+            borderColor: formSpecificPresentation ? "#b9b9b9" : undefined,
+            borderRadius: formSpecificPresentation ? "3px" : undefined,
+            background: "#ffffff",
+            color: "#333333",
+            padding: formSpecificPresentation ? "8px 14px" : undefined,
+            fontWeight: 600,
+          }}
+        >
+          + {buttonText}
+        </button>
+
+        {attachmentItems.length > 0 && (
+          <div
+            style={{
+              marginTop: "12px",
+              display: "grid",
+              gap: "8px",
+            }}
+          >
+            {attachmentItems.map((attachment) => (
+              <div
+                key={attachment.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  padding: "8px 10px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  background: "#ffffff",
+                  fontSize: "13px",
+                }}
+              >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {attachment.file.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(attachment.id)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: "#a4262c",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                  }}
+                  aria-label={`Remove ${attachment.file.name}`}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderField = (field: IField): React.ReactElement => {
+    const fieldUiConfig = getFieldUiConfig(field.internalName);
+    const label = getConfigLabel(field);
+    const help = getConfigHelpText(field);
+    const value = formData[field.internalName];
+    const readOnly = fieldUiConfig && fieldUiConfig.readOnly === true;
+    const required =
+      field.required ||
+      (config.validation &&
+        config.validation[field.internalName] &&
+        config.validation[field.internalName].required);
+    const inputBackground = config.theme?.inputBackground || inputStyle.background;
+    const inputBorder =
+      config.theme?.inputBorder === "none"
+        ? "none"
+        : config.theme?.inputBorder || inputStyle.border;
+    const fieldInputStyle: React.CSSProperties = {
+      ...inputStyle,
+      background: inputBackground,
+      border: inputBorder,
+      borderRadius: formSpecificPresentation ? "3px" : inputStyle.borderRadius,
+      minHeight: formSpecificPresentation ? "38px" : undefined,
+      fontSize: formSpecificPresentation ? "14px" : inputStyle.fontSize,
+      boxShadow: config.theme?.inputBorder === "none" ? "none" : undefined,
+    };
+    const fieldLabelStyle: React.CSSProperties = {
+      ...labelStyle,
+      fontSize: config.theme?.labelFontSize || labelStyle.fontSize,
+      fontWeight: formSpecificPresentation ? 500 : labelStyle.fontWeight,
+      color: config.theme?.labelColor || labelStyle.color,
+      marginBottom: help ? "7px" : "8px",
+    };
+    const helpStyle: React.CSSProperties = {
+      fontSize: formSpecificPresentation ? "13px" : "12px",
+      color: config.theme?.descriptionColor || theme.text.secondary,
+      lineHeight: 1.55,
+      marginBottom: "10px",
+    };
+
+    return (
+      <div
+        key={field.internalName}
+        style={{ marginBottom: formSpecificPresentation ? "30px" : "12px" }}
+      >
+        <label style={fieldLabelStyle}>
+          {label}
+          {required && <span style={{ color: "#a4262c" }}> *</span>}
+        </label>
+
+        {help && <div style={helpStyle}>{help}</div>}
 
         {field.typeAsString === "Text" && (
           <input
             type="text"
             placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined}
             disabled={readOnly}
-            style={inputStyle}
+            style={fieldInputStyle}
             value={String(value || "")}
             onChange={(event) =>
               handleChange(field.internalName, event.target.value)
@@ -1959,7 +2457,12 @@ export default function FrccFormsPortal(
           <textarea
             placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined}
             disabled={readOnly}
-            style={inputStyle}
+            rows={fieldUiConfig?.rows || (formSpecificPresentation ? 5 : undefined)}
+            style={{
+              ...fieldInputStyle,
+              minHeight: formSpecificPresentation ? "96px" : undefined,
+              resize: "vertical",
+            }}
             value={String(value || "")}
             onChange={(event) =>
               handleChange(field.internalName, event.target.value)
@@ -1970,13 +2473,15 @@ export default function FrccFormsPortal(
         {field.typeAsString === "Choice" && (
           <select
             disabled={readOnly}
-            style={inputStyle}
+            style={fieldInputStyle}
             value={String(value || "")}
             onChange={(event) =>
               handleChange(field.internalName, event.target.value)
             }
           >
-            <option value="">Select...</option>
+            <option value="">
+              {fieldUiConfig?.placeholder || "Select..."}
+            </option>
             {field.choices?.map((choice: string) => (
               <option key={choice} value={choice}>
                 {choice}
@@ -1989,7 +2494,7 @@ export default function FrccFormsPortal(
           <select
             multiple
             disabled={readOnly}
-            style={{ ...inputStyle, minHeight: "80px" }}
+            style={{ ...fieldInputStyle, minHeight: "80px" }}
             value={(value as string[]) || []}
             onChange={(event) => {
               const selectedValues = Array.from(
@@ -2012,7 +2517,7 @@ export default function FrccFormsPortal(
             type="number"
             placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined}
             disabled={readOnly}
-            style={inputStyle}
+            style={fieldInputStyle}
             value={value === undefined ? "" : String(value)}
             onChange={(event) => {
               const nextValue = event.target.value;
@@ -2039,7 +2544,7 @@ export default function FrccFormsPortal(
           <input
             type="date"
             disabled={readOnly}
-            style={inputStyle}
+            style={fieldInputStyle}
             value={String(value || "")}
             onChange={(event) =>
               handleChange(field.internalName, event.target.value)
@@ -2048,26 +2553,124 @@ export default function FrccFormsPortal(
         )}
 
         {field.typeAsString === "User" && (
-          <input
-            type="email"
-            placeholder={
-              fieldUiConfig && fieldUiConfig.placeholder
-                ? fieldUiConfig.placeholder
-                : "Enter user email"
-            }
-            disabled={readOnly}
-            style={inputStyle}
-            value={String(value || "")}
-            onChange={(event) =>
-              handleChange(field.internalName, event.target.value)
-            }
-          />
+          <div style={{ position: "relative" }}>
+            <input
+              type="text"
+              placeholder={
+                fieldUiConfig && fieldUiConfig.placeholder
+                  ? fieldUiConfig.placeholder
+                  : "Enter a name or email address"
+              }
+              disabled={readOnly}
+              style={fieldInputStyle}
+              value={String(value || "")}
+              onFocus={() => setActivePeopleFieldName(field.internalName)}
+              onBlur={() => {
+                window.setTimeout(() => {
+                  setActivePeopleFieldName((current) =>
+                    current === field.internalName ? "" : current,
+                  );
+                }, 180);
+              }}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                handleChange(field.internalName, nextValue);
+                queuePeopleSearch(field.internalName, nextValue);
+              }}
+            />
+
+            {activePeopleFieldName === field.internalName &&
+              (peopleSuggestions[field.internalName] || []).length > 0 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    zIndex: 1000,
+                    top: "calc(100% + 4px)",
+                    left: 0,
+                    right: 0,
+                    maxHeight: "240px",
+                    overflowY: "auto",
+                    border: "1px solid #c8c6c4",
+                    borderRadius: "4px",
+                    background: "#ffffff",
+                    boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
+                  }}
+                >
+                  {(peopleSuggestions[field.internalName] || []).map(
+                    (suggestion) => (
+                      <button
+                        key={suggestion.key}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() =>
+                          selectPeopleSuggestion(field.internalName, suggestion)
+                        }
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          padding: "9px 10px",
+                          border: "none",
+                          borderBottom: "1px solid #f3f4f6",
+                          background: "#ffffff",
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: "30px",
+                            height: "30px",
+                            borderRadius: "50%",
+                            background: "#e5e7eb",
+                            color: "#64748b",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: 800,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {(suggestion.displayName || suggestion.email)
+                            .slice(0, 1)
+                            .toUpperCase()}
+                        </span>
+                        <span style={{ minWidth: 0 }}>
+                          <span
+                            style={{
+                              display: "block",
+                              color: "#111827",
+                              fontSize: "13px",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {suggestion.displayName}
+                          </span>
+                          <span
+                            style={{
+                              display: "block",
+                              color: "#6b7280",
+                              fontSize: "12px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {suggestion.email}
+                          </span>
+                        </span>
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
+          </div>
         )}
 
         {field.typeAsString === "Lookup" && (
           <select
             disabled={readOnly}
-            style={inputStyle}
+            style={fieldInputStyle}
             value={String(value || "")}
             onChange={(event) =>
               handleChange(
@@ -2078,7 +2681,9 @@ export default function FrccFormsPortal(
               )
             }
           >
-            <option value="">Select...</option>
+            <option value="">
+              {fieldUiConfig?.placeholder || "Select..."}
+            </option>
             {(lookupOptions[field.internalName] || []).map(
               (option: ILookupOption) => (
                 <option key={option.id} value={option.id}>
@@ -2094,7 +2699,7 @@ export default function FrccFormsPortal(
             type="url"
             placeholder={fieldUiConfig ? fieldUiConfig.placeholder : undefined}
             disabled={readOnly}
-            style={inputStyle}
+            style={fieldInputStyle}
             value={String(value || "")}
             onChange={(event) =>
               handleChange(field.internalName, event.target.value)
@@ -2119,14 +2724,8 @@ export default function FrccFormsPortal(
             type="text"
             disabled
             placeholder={`Unsupported: ${field.typeAsString}`}
-            style={inputStyle}
+            style={fieldInputStyle}
           />
-        )}
-
-        {help && (
-          <div style={{ fontSize: "12px", color: theme.text.secondary }}>
-            {help}
-          </div>
         )}
 
         {validationWarnings[field.internalName] && (
@@ -2145,11 +2744,12 @@ export default function FrccFormsPortal(
   };
 
   const getFieldWrapperClass = (field: IField): string => {
-    const fieldUiConfig = config.fields
-      ? config.fields[field.internalName]
-      : undefined;
+    const fieldUiConfig = getFieldUiConfig(field.internalName);
 
-    if (fieldUiConfig && fieldUiConfig.width === "full")
+    if (
+      fieldUiConfig &&
+      (fieldUiConfig.width === "full" || fieldUiConfig.width === "100%")
+    )
       return styles.sectionFull;
     if (field.typeAsString === "Note" || field.typeAsString === "User")
       return styles.sectionFull;
@@ -2221,9 +2821,12 @@ export default function FrccFormsPortal(
     return (
       <div
         style={{
-          maxWidth: "900px",
+          maxWidth: config.theme?.cardMaxWidth || "900px",
           ...cardStyle,
           marginBottom: "26px",
+          borderRadius: formSpecificPresentation
+            ? config.theme?.cardBorderRadius || "10px"
+            : cardStyle.borderRadius,
         }}
       >
         <h3
@@ -2283,6 +2886,7 @@ export default function FrccFormsPortal(
                 setSuccessMessage("");
                 setErrorMessage("");
                 setFormData({});
+                setAttachmentItems([]);
                 setValidationErrors({});
                 setValidationWarnings({});
                 window.scrollTo({ top: 0, behavior: "smooth" });
@@ -2315,6 +2919,7 @@ export default function FrccFormsPortal(
   const renderRowsLayout = (): React.ReactElement | null => {
     if (
       !config.layout ||
+      typeof config.layout === "string" ||
       !config.layout.rows ||
       config.layout.rows.length === 0
     )
@@ -2376,18 +2981,167 @@ export default function FrccFormsPortal(
     return <div>{rowElements}</div>;
   };
 
+  const renderFormJsonHeader = (): React.ReactElement | null => {
+    if (!formSpecificPresentation) return null;
+
+    const logo = config.logo;
+    const title = config.title || selectedForm?.title || "Form";
+    const description = config.description;
+    const userNoticeText = config.intro?.showUserNotice
+      ? config.intro.userNoticeText
+      : undefined;
+    const logoShape = logo?.shape || "circle";
+
+    return (
+      <div style={{ marginBottom: "30px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "18px",
+            marginBottom: description ? "22px" : "12px",
+          }}
+        >
+          {logo && (
+            <div
+              style={{
+                width: "54px",
+                height: "54px",
+                borderRadius:
+                  logoShape === "circle"
+                    ? "50%"
+                    : logoShape === "square"
+                      ? "0"
+                      : "12px",
+                background: logo.backgroundColor || "#002f6c",
+                color: logo.color || "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 800,
+                fontSize: "13px",
+                letterSpacing: "0.2px",
+                flexShrink: 0,
+                overflow: "hidden",
+              }}
+            >
+              {logo.type === "image" && logo.url ? (
+                <img
+                  src={logo.url}
+                  alt="Form logo"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                logo.text || "FRCC"
+              )}
+            </div>
+          )}
+
+          <h1
+            style={{
+              margin: 0,
+              color: config.theme?.headerColor || "#242424",
+              fontSize: "28px",
+              lineHeight: 1.15,
+              fontWeight: 700,
+            }}
+          >
+            {title}
+          </h1>
+        </div>
+
+        {description && (
+          <p
+            style={{
+              margin: "0 0 20px 0",
+              color: config.theme?.descriptionColor || "#333333",
+              fontSize: "14px",
+              lineHeight: 1.55,
+            }}
+          >
+            {description}
+          </p>
+        )}
+
+        {userNoticeText && (
+          <p
+            style={{
+              margin: "0 0 26px 0",
+              color: "#666666",
+              fontSize: "14px",
+              lineHeight: 1.55,
+            }}
+          >
+            {userNoticeText}
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  const renderConfiguredFieldByName = (
+    fieldName: string,
+  ): React.ReactElement | null => {
+    if (fieldName === "Attachments") return renderConfiguredAttachmentField();
+
+    const field = renderableFields.filter(
+      (candidate) => candidate.internalName === fieldName,
+    )[0];
+
+    if (!field) return null;
+
+    return renderField(field);
+  };
+
+  const renderFormJsonFooter = (): React.ReactElement | null => {
+    if (!config.footer) return null;
+
+    return (
+      <div
+        style={{
+          marginTop: "26px",
+          paddingTop: "18px",
+          borderTop: "1px solid #e5e7eb",
+          color: "#666666",
+          fontSize: "11px",
+          lineHeight: 1.55,
+        }}
+      >
+        {config.footer.showPoweredBy && (
+          <div style={{ marginBottom: "10px", fontWeight: 600 }}>
+            🧱 {config.footer.poweredByText || "Powered by Microsoft Lists"}
+          </div>
+        )}
+
+        {config.footer.text && <div>{config.footer.text}</div>}
+      </div>
+    );
+  };
+
   const renderSections = (): React.ReactElement[] => {
     const sections = config.sections || [];
+    const defaultLayout =
+      typeof config.layout === "string"
+        ? normalizeLayout(config.layout)
+        : "twoColumn";
 
     if (sections.length === 0) {
       return [
         <div key="default-section">
           {renderRowsLayout() || (
-            <div className={styles.sectionGrid}>
+            <div
+              className={
+                defaultLayout === "oneColumn" ? "" : styles.sectionGrid
+              }
+            >
               {renderableFields.map((field) => (
                 <div
                   key={field.internalName}
-                  className={getFieldWrapperClass(field)}
+                  className={
+                    defaultLayout === "oneColumn"
+                      ? styles.sectionFull
+                      : getFieldWrapperClass(field)
+                  }
                 >
                   {renderField(field)}
                 </div>
@@ -2400,32 +3154,45 @@ export default function FrccFormsPortal(
 
     const renderedFieldNames: string[] = [];
 
-    const sectionElements = sections.map((section) => {
+    const sectionElements = sections.map((section, sectionIndex) => {
+      const sectionLayout = normalizeLayout(section.layout || defaultLayout);
       const sectionFields = section.fields
-        .map(
-          (fieldName) =>
-            renderableFields.filter(
-              (field) => field.internalName === fieldName,
-            )[0],
-        )
+        .map((fieldName) => {
+          if (fieldName === "Attachments") return undefined;
+
+          return renderableFields.filter(
+            (field) => field.internalName === fieldName,
+          )[0];
+        })
         .filter((field): field is IField => field !== undefined);
 
-      sectionFields.forEach((field) =>
-        renderedFieldNames.push(field.internalName),
-      );
+      section.fields.forEach((fieldName) => renderedFieldNames.push(fieldName));
+
+      const configuredElements = section.fields
+        .map((fieldName) => renderConfiguredFieldByName(fieldName))
+        .filter((element): element is React.ReactElement => element !== null);
+
+      const showSectionHeader =
+        !config.hideSectionHeaders && section.title && section.title.trim() !== "";
 
       return (
-        <div key={section.title} style={{ marginBottom: "28px" }}>
-          <h3
-            style={{
-              ...sectionHeaderStyle,
-              marginBottom: section.description ? "10px" : "18px",
-            }}
-          >
-            {section.title}
-          </h3>
+        <div
+          key={section.title || `section-${sectionIndex}`}
+          style={{ marginBottom: formSpecificPresentation ? "8px" : "28px" }}
+        >
+          {showSectionHeader && (
+            <h3
+              style={{
+                ...sectionHeaderStyle,
+                background: `linear-gradient(90deg, ${accentColor} 0%, #006fbf 100%)`,
+                marginBottom: section.description ? "10px" : "18px",
+              }}
+            >
+              {section.title}
+            </h3>
+          )}
 
-          {section.description && (
+          {section.description && !config.hideSectionHeaders && (
             <div
               style={{
                 fontSize: "13px",
@@ -2438,20 +3205,33 @@ export default function FrccFormsPortal(
           )}
 
           <div
-            className={section.layout === "oneColumn" ? "" : styles.sectionGrid}
+            className={sectionLayout === "oneColumn" ? "" : styles.sectionGrid}
+            style={
+              sectionLayout === "oneColumn"
+                ? undefined
+                : formSpecificPresentation
+                  ? { gap: "0 32px" }
+                  : undefined
+            }
           >
-            {sectionFields.map((field) => (
-              <div
-                key={field.internalName}
-                className={
-                  section.layout === "oneColumn"
-                    ? styles.sectionFull
-                    : getFieldWrapperClass(field)
-                }
-              >
-                {renderField(field)}
-              </div>
-            ))}
+            {configuredElements.map((element, index) => {
+              const field = sectionFields[index];
+
+              return (
+                <div
+                  key={element.key || `configured-field-${index}`}
+                  className={
+                    sectionLayout === "oneColumn"
+                      ? styles.sectionFull
+                      : field
+                        ? getFieldWrapperClass(field)
+                        : styles.sectionFull
+                  }
+                >
+                  {element}
+                </div>
+              );
+            })}
           </div>
         </div>
       );
@@ -2464,20 +3244,29 @@ export default function FrccFormsPortal(
     if (remainingFields.length > 0) {
       sectionElements.push(
         <div key="other-fields" style={{ marginBottom: "28px" }}>
-          <h3
-            style={{
-              ...sectionHeaderStyle,
-              marginBottom: "18px",
-            }}
-          >
-            Other Information
-          </h3>
+          {!config.hideSectionHeaders && (
+            <h3
+              style={{
+                ...sectionHeaderStyle,
+                background: `linear-gradient(90deg, ${accentColor} 0%, #006fbf 100%)`,
+                marginBottom: "18px",
+              }}
+            >
+              Other Information
+            </h3>
+          )}
 
-          <div className={styles.sectionGrid}>
+          <div
+            className={defaultLayout === "oneColumn" ? "" : styles.sectionGrid}
+          >
             {remainingFields.map((field) => (
               <div
                 key={field.internalName}
-                className={getFieldWrapperClass(field)}
+                className={
+                  defaultLayout === "oneColumn"
+                    ? styles.sectionFull
+                    : getFieldWrapperClass(field)
+                }
               >
                 {renderField(field)}
               </div>
@@ -2812,18 +3601,29 @@ export default function FrccFormsPortal(
           )}
         </div>
 
-        <div className={styles.formArea} style={{ background: "#eef3f8" }}>
+        <div
+          className={styles.formArea}
+          style={{
+            background: formSpecificPresentation ? formPageBackground : "#eef3f8",
+            fontFamily: config.theme?.fontFamily || theme.app.fontFamily,
+          }}
+        >
           {renderEnterpriseFormHeader()}
 
           <div
             className={styles.formPlaceholder}
             style={{
-              borderRadius: "16px",
-              border: "1px solid #dbeafe",
-              boxShadow: "0 12px 28px rgba(15, 23, 42, 0.08)",
-              maxWidth: "1180px",
+              borderRadius: formSpecificPresentation ? formCardBorderRadius : "16px",
+              border: formSpecificPresentation ? "1px solid #d7d7d7" : "1px solid #dbeafe",
+              boxShadow: formSpecificPresentation
+                ? "0 2px 10px rgba(0, 0, 0, 0.10)"
+                : "0 12px 28px rgba(15, 23, 42, 0.08)",
+              maxWidth: formSpecificPresentation ? formCardMaxWidth : "1180px",
+              background: formSpecificPresentation ? formCardBackground : undefined,
+              padding: formSpecificPresentation ? formCardPadding : undefined,
             }}
           >
+            {renderFormJsonHeader()}
             {isLoadingFields && <div>Loading form fields...</div>}
 
             {!isLoadingFields &&
@@ -2926,7 +3726,14 @@ export default function FrccFormsPortal(
               !selectedFormIsPdf &&
               selectedCanSubmit &&
               renderableFields.length > 0 && (
-                <div className={styles.submitBar}>
+                <div
+                  className={styles.submitBar}
+                  style={{
+                    justifyContent: submitAlign,
+                    borderTop: formSpecificPresentation ? "none" : undefined,
+                    marginTop: formSpecificPresentation ? "8px" : undefined,
+                  }}
+                >
                   {canManageFormConfiguration && (
                     <button
                       type="button"
@@ -2963,12 +3770,24 @@ export default function FrccFormsPortal(
                     }}
                     disabled={isSubmitting || isGeneratingJson}
                     className={styles.submitButton}
-                    style={primaryButtonStyle}
+                    style={{
+                      ...primaryButtonStyle,
+                      background: submitButtonBackground,
+                      borderColor: submitButtonBackground,
+                      borderRadius: formSpecificPresentation ? "3px" : primaryButtonStyle.borderRadius,
+                    }}
                   >
-                    {isSubmitting ? "Submitting..." : "Submit Request"}
+                    {isSubmitting ? "Submitting..." : submitButtonText}
                   </button>
                 </div>
               )}
+
+            {!isLoadingFields &&
+              selectedForm &&
+              !selectedFormIsPdf &&
+              selectedCanSubmit &&
+              formSpecificPresentation &&
+              renderFormJsonFooter()}
           </div>
         </div>
       </div>
