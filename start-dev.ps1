@@ -17,26 +17,33 @@ if (!(Test-Path ".\node_modules")) {
     npm install
 }
 
-$Port = 4321
+$Port = 5432
+
 $PortInUse = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue
 
 if ($PortInUse) {
-    Write-Host "Port 4321 is already in use. Closing existing process..."
+    Write-Host "Port $Port is already in use. Closing existing process..."
+
     $PortInUse | ForEach-Object {
         Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
     }
+
+    Start-Sleep -Seconds 2
 }
 
-$DebugUrl = "https://cccs.sharepoint.com/sites/frcc-forms/SitePages/FRCC-Forms-Portal.aspx?debugManifestsFile=https://localhost:4321/temp/build/manifests.js&debug=true&noredir=true"
-$ManifestUrl = "https://localhost:4321/temp/build/manifests.js"
+$DebugUrl = "https://cccs.sharepoint.com/sites/frcc-forms/_layouts/15/workbench.aspx?debugManifestsFile=https://localhost:5432/temp/build/manifests.js&debug=true&noredir=true"
 
-Write-Host "Starting SPFx dev server..."
+$ManifestUrl = "https://localhost:5432/temp/build/manifests.js"
+
+Write-Host "Starting SPFx dev server on port $Port..."
 
 $Job = Start-Job -ScriptBlock {
     param($ProjectRoot, $NodePath)
 
     $env:PATH = "$NodePath;$env:PATH"
+
     Set-Location $ProjectRoot
+
     npm run start
 } -ArgumentList $ProjectRoot, $NodePath
 
@@ -46,7 +53,12 @@ $Ready = $false
 
 for ($i = 1; $i -le 60; $i++) {
     try {
-        Invoke-WebRequest -Uri $ManifestUrl -UseBasicParsing -SkipCertificateCheck -TimeoutSec 2 | Out-Null
+        Invoke-WebRequest `
+            -Uri $ManifestUrl `
+            -UseBasicParsing `
+            -SkipCertificateCheck `
+            -TimeoutSec 2 | Out-Null
+
         $Ready = $true
         break
     }
@@ -60,9 +72,15 @@ if ($Ready) {
     Start-Process $DebugUrl
 }
 else {
-    Write-Host "SPFx did not become ready automatically. Open this URL manually after the server finishes loading:"
+    Write-Host ""
+    Write-Host "SPFx did not become ready automatically."
+    Write-Host "Open this URL manually after webpack finishes:"
+    Write-Host ""
     Write-Host $DebugUrl
 }
 
-Write-Host "SPFx server is running. Keep this PowerShell window open."
+Write-Host ""
+Write-Host "SPFx server is running."
+Write-Host "Keep this PowerShell window open."
+
 Receive-Job $Job -Wait

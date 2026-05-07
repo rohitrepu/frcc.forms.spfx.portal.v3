@@ -15,6 +15,7 @@ import {
   ILookupOption,
 } from "../../../services/SchemaService";
 import { getTheme } from "../../../services/ThemeService";
+import { generateFormLayoutFromFields } from "../../../services/FormSchemaLayoutService";
 
 import prerequisiteOverride from "../../../config/forms/prerequisite-placement-override.form.json";
 import courseSubstitution from "../../../config/forms/course-substitution.form.json";
@@ -1000,30 +1001,6 @@ export default function FrccFormsPortal(
     }));
   };
 
-  const queuePeopleSearch = (fieldName: string, query: string): void => {
-    setActivePeopleFieldName(fieldName);
-
-    if (peopleSearchTimeoutRef.current !== undefined) {
-      window.clearTimeout(peopleSearchTimeoutRef.current);
-    }
-
-    const trimmedQuery = query.trim();
-
-    if (trimmedQuery.length < 2) {
-      setPeopleSuggestions((previous) => ({
-        ...previous,
-        [fieldName]: [],
-      }));
-      return;
-    }
-
-    peopleSearchTimeoutRef.current = window.setTimeout(() => {
-      searchPeople(fieldName, trimmedQuery).catch((error: unknown) => {
-        console.warn("People picker search failed.", error);
-      });
-    }, 250);
-  };
-
   const searchPeople = async (
     fieldName: string,
     query: string,
@@ -1102,6 +1079,30 @@ export default function FrccFormsPortal(
       ...previous,
       [fieldName]: suggestions,
     }));
+  };
+
+  const queuePeopleSearch = (fieldName: string, query: string): void => {
+    setActivePeopleFieldName(fieldName);
+
+    if (peopleSearchTimeoutRef.current !== undefined) {
+      window.clearTimeout(peopleSearchTimeoutRef.current);
+    }
+
+    const trimmedQuery = query.trim();
+
+    if (trimmedQuery.length < 2) {
+      setPeopleSuggestions((previous) => ({
+        ...previous,
+        [fieldName]: [],
+      }));
+      return;
+    }
+
+    peopleSearchTimeoutRef.current = window.setTimeout(() => {
+      searchPeople(fieldName, trimmedQuery).catch((error: unknown) => {
+        console.warn("People picker search failed.", error);
+      });
+    }, 250);
   };
 
   const selectPeopleSuggestion = (
@@ -1333,277 +1334,13 @@ export default function FrccFormsPortal(
       setErrorMessage("");
       setSuccessMessage("");
 
-      const hiddenFields = ["Status"];
+      const generatedJson = generateFormLayoutFromFields(fields) as IFormJsonConfig;
+      const nextHiddenFields = generatedJson.hiddenFields || [];
 
-      const visibleFields = fields.filter(
-        (field) => hiddenFields.indexOf(field.internalName) === -1,
-      );
-
-      const hasAnyKeyword = (field: IField, keywords: string[]): boolean => {
-        const lowerName = field.internalName.toLowerCase();
-        const lowerTitle = field.title.toLowerCase();
-        const searchableText = `${lowerName} ${lowerTitle}`;
-
-        return keywords.some(
-          (keyword) => searchableText.indexOf(keyword) !== -1,
-        );
-      };
-
-      const groupedFieldNames: string[] = [];
-
-      const takeFields = (keywords: string[]): string[] => {
-        const matches = visibleFields
-          .filter(
-            (field) =>
-              groupedFieldNames.indexOf(field.internalName) === -1 &&
-              hasAnyKeyword(field, keywords),
-          )
-          .map((field) => field.internalName);
-
-        matches.forEach((fieldName) => groupedFieldNames.push(fieldName));
-
-        return matches;
-      };
-
-      const requesterFields = takeFields([
-        "requester",
-        "requestor",
-        "student",
-        "employee",
-        "first",
-        "middle",
-        "last",
-        "name",
-      ]);
-
-      const contactFields = takeFields([
-        "email",
-        "phone",
-        "address",
-        "city",
-        "state",
-        "zip",
-      ]);
-
-      const requestFields = takeFields([
-        "request",
-        "type",
-        "category",
-        "campus",
-        "department",
-        "priority",
-        "summary",
-        "description",
-        "reason",
-        "justification",
-      ]);
-
-      const academicFields = takeFields([
-        "course",
-        "prereq",
-        "prerequisite",
-        "placement",
-        "cutscore",
-        "cut score",
-        "term",
-        "semester",
-        "year",
-        "program",
-        "degree",
-        "major",
-      ]);
-
-      const financialFields = takeFields([
-        "amount",
-        "cost",
-        "total",
-        "budget",
-        "fund",
-        "funding",
-        "grant",
-        "finance",
-        "account",
-      ]);
-
-      const signatureFields = takeFields([
-        "signature",
-        "acknowledge",
-        "acknowledgement",
-        "certification",
-        "completion",
-        "date",
-      ]);
-
-      const reviewFields = visibleFields
-        .filter(
-          (field) =>
-            groupedFieldNames.indexOf(field.internalName) === -1 &&
-            (hasAnyKeyword(field, [
-              "supervisor",
-              "advisor",
-              "approver",
-              "approval",
-              "decision",
-              "workflow",
-              "stage",
-              "review",
-              "chair",
-              "dean",
-              "director",
-              "notes",
-            ]) ||
-              field.typeAsString === "User" ||
-              field.typeAsString === "Note"),
-        )
-        .map((field) => field.internalName);
-
-      reviewFields.forEach((fieldName) => groupedFieldNames.push(fieldName));
-
-      const otherFields = visibleFields
-        .filter((field) => groupedFieldNames.indexOf(field.internalName) === -1)
-        .map((field) => field.internalName);
-
-      const sections: ISectionConfig[] = [
-        {
-          title: "Requester / Student Information",
-          description: "Basic requester, student, or employee identity fields.",
-          layout: "twoColumn" as const,
-          fields: requesterFields,
-        },
-        {
-          title: "Contact Information",
-          description: "Email, phone, address, and related contact details.",
-          layout: "twoColumn" as const,
-          fields: contactFields,
-        },
-        {
-          title: "Request Details",
-          description: "Main request details and supporting explanation.",
-          layout: "twoColumn" as const,
-          fields: requestFields,
-        },
-        {
-          title: "Academic / Course Information",
-          description: "Course, term, program, and academic details.",
-          layout: "twoColumn" as const,
-          fields: academicFields,
-        },
-        {
-          title: "Financial / Budget Information",
-          description: "Budget, funding, cost, and finance-related fields.",
-          layout: "twoColumn" as const,
-          fields: financialFields,
-        },
-        {
-          title: "Acknowledgement / Signature",
-          description:
-            "Acknowledgement, certification, date, and signature fields.",
-          layout: "twoColumn" as const,
-          fields: signatureFields,
-        },
-        {
-          title: "Review / Approval",
-          description:
-            "Review notes, approvals, decisions, and internal follow-up fields.",
-          layout: "twoColumn" as const,
-          fields: reviewFields,
-        },
-      ].filter((section) => section.fields.length > 0);
-
-      if (otherFields.length > 0) {
-        sections.push({
-          title: "Other Information",
-          description: "Additional fields from the SharePoint list.",
-          layout: "twoColumn" as const,
-          fields: otherFields,
-        });
-      }
-
-      const labels = visibleFields.reduce(
-        (accumulator: { [key: string]: string }, field: IField) => {
-          accumulator[field.internalName] = field.title
-            .replace(/([a-z])([A-Z])/g, "$1 $2")
-            .replace(/ID/g, "ID")
-            .replace(/Email/g, "Email")
-            .replace(/Prereq/g, "Prerequisite")
-            .replace(/CutScore/g, "Cut Score");
-
-          return accumulator;
-        },
-        {},
-      );
-
-      const helpText: { [key: string]: string } = {};
-      const fieldConfig: { [key: string]: IFieldUiConfig } = {};
-      const validation: { [key: string]: IValidationRule } = {};
-      const transform: { [key: string]: TransformType } = {};
-
-      visibleFields.forEach((field) => {
-        const lowerName = field.internalName.toLowerCase();
-
-        fieldConfig[field.internalName] = {
-          width:
-            field.typeAsString === "Note" || field.typeAsString === "User"
-              ? "full"
-              : "half",
-        };
-
-        if (field.required) {
-          validation[field.internalName] = {
-            required: true,
-            message: `${field.title} is required.`,
-          };
-        }
-
-        if (lowerName.indexOf("email") !== -1) {
-          helpText[field.internalName] =
-            "Enter the email address that should receive updates.";
-          fieldConfig[field.internalName].placeholder = "name@frontrange.edu";
-          transform[field.internalName] = "lowercase";
-        }
-
-        if (
-          lowerName.indexOf("name") !== -1 ||
-          lowerName.indexOf("title") !== -1
-        ) {
-          transform[field.internalName] = "trim";
-        }
-
-        if (lowerName.indexOf("justification") !== -1) {
-          helpText[field.internalName] =
-            "Briefly explain why this request is needed.";
-          fieldConfig[field.internalName].width = "full";
-        }
-
-        if (field.typeAsString === "User") {
-          helpText[field.internalName] =
-            "Enter the person’s email address. This will be upgraded to a People Picker later.";
-          fieldConfig[field.internalName].placeholder = "name@frontrange.edu";
-          fieldConfig[field.internalName].width = "full";
-        }
-
-        if (field.typeAsString === "Lookup") {
-          helpText[field.internalName] =
-            "Select the appropriate value from the list.";
-        }
-
-        if (field.typeAsString === "Note") {
-          fieldConfig[field.internalName].width = "full";
-        }
-      });
-
-      const generatedJson: IFormJsonConfig = {
-        hiddenFields,
-        sections,
-        labels,
-        helpText,
-        fields: fieldConfig,
-        validation,
-        transform,
-        theme: {
-          accentColor: "#005a9e",
-        },
-      };
+      generatedJson.hiddenFields =
+        nextHiddenFields.indexOf("Status") === -1
+          ? [...nextHiddenFields, "Status"]
+          : nextHiddenFields;
 
       const formattedJson = JSON.stringify(generatedJson, null, 2);
 
