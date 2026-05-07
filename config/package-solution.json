@@ -1,9 +1,9 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
   "solution": {
-    "name": "frcc-forms-portal-v3",
-    "id": "3999aa3f-0f62-4d6c-b719-937be374bde1",
-    "version": "3.0.0.0",
+    "name": "frcc-forms-portal-v4",
+    "id": "b4cb6234-a198-4c56-8bc7-03e38ca3e038",
+    "version": "4.0.0.0",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,
@@ -16,10 +16,10 @@
     },
     "metadata": {
       "shortDescription": {
-        "default": "FRCC Forms Portal V2"
+        "default": "FRCC Forms Portal V4"
       },
       "longDescription": {
-        "default": "FRCC Forms Portal V2"
+        "default": "FRCC Forms Portal V4"
       },
       "screenshotPaths": [],
       "videoUrl": "",
@@ -27,14 +27,14 @@
     },
     "features": [
       {
-        "title": "FRCC Forms Portal V3 Feature",
-        "description": "Feature for FRCC Forms Portal V2.",
-        "id": "afa6a4a7-b90d-4cd3-acf3-ea514a8c602e",
-        "version": "1.0.1.0"
+        "title": "FRCC Forms Portal V4 Feature",
+        "description": "Feature for FRCC Forms Portal V4.",
+        "id": "5082fceb-a580-4a71-b64f-9001a1313586",
+        "version": "4.0.0.0"
       }
     ]
   },
   "paths": {
-    "zippedPackage": "solution/frcc-forms-portal-v3.sppkg"
+    "zippedPackage": "solution/frcc-forms-portal-v4.sppkg"
   }
 }

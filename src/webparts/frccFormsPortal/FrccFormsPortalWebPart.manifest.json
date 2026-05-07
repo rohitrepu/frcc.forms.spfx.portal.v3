@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json",
-  "id": "ccdba1bc-2958-4c45-8359-396d4c75d1b3",
-  "alias": "FrccFormsPortalV3WebPart",
+  "id": "0e8318ce-5aa1-44b2-a22f-daa1c297f9c2",
+  "alias": "FrccFormsPortalWebPart",
   "componentType": "WebPart",
   "version": "*",
   "manifestVersion": 2,
@@ -20,14 +20,14 @@
         "default": "Advanced"
       },
       "title": {
-        "default": "FRCC Forms Portal V3"
+        "default": "FRCC Forms Portal V4"
       },
       "description": {
-        "default": "FRCC Forms Portal V3 with schema-driven automatic form layout."
+        "default": "FRCC Forms Portal V4 with schema-driven automatic form layout."
       },
       "officeFabricIconFontName": "Page",
       "properties": {
-        "description": "FRCC Forms Portal V2"
+        "description": "FRCC Forms Portal V4"
       }
     }
   ]

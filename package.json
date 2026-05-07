@@ -1,6 +1,6 @@
 {
-  "name": "frcc-forms-spfx-portal-v3",
-  "version": "3.0.0",
+  "name": "frcc-forms-spfx-portal-v4",
+  "version": "1.0.3",
   "private": true,
   "engines": {
     "node": ">=22.14.0 < 23.0.0"
